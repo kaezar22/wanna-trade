@@ -7,7 +7,7 @@ import { cacheLife } from "next/cache";
 import { addDays } from "../market/as-of";
 import { getPriceSeries } from "../market/prices";
 import { getCdtHistory } from "../rates/cdt";
-import { monthlyLast, parseFredCsv, type MacroPoint } from "./parse";
+import { inflationFromUvr, monthlyLast, parseFredCsv, type MacroPoint } from "./parse";
 import { parseSdmxJson, parseSdmxXml } from "./sdmx";
 
 export type MacroSeries = {
@@ -44,16 +44,20 @@ async function fredSeries(id: string): Promise<{ points: MacroPoint[]; error?: s
 const BANREP = "https://totoro.banrep.gov.co/nsi-jax-ws/rest/data";
 
 /**
- * Serie de la API SDMX del Banco de la República. Prueba primero SDMX-JSON y,
- * si no, SDMX-ML. Los valores vienen en porcentaje y se pasan a fracción.
+ * Serie de la API SDMX del Banco de la República. Prueba primero SDMX-ML y,
+ * si no, SDMX-JSON. Las tasas vienen en porcentaje: `scale` = 0.01 las pasa a fracción.
  */
-async function banrepSeries(flow: string, start: string): Promise<{ points: MacroPoint[]; error?: string }> {
+async function banrepSeries(
+  flow: string,
+  start: string,
+  scale = 0.01,
+): Promise<{ points: MacroPoint[]; error?: string }> {
   "use cache";
   const url = `${BANREP}/${flow}/all/all?startPeriod=${start}`;
+  // La API responde SDMX-ML genérico con application/xml (JSON da 406).
   const attempts = [
-    { accept: "application/vnd.sdmx.data+json;version=1.0.0", parse: (t: string) => parseSdmxJson(JSON.parse(t), 0.01) },
-    { accept: "application/vnd.sdmx.structurespecificdata+xml;version=2.1", parse: (t: string) => parseSdmxXml(t, 0.01) },
-    { accept: "application/xml", parse: (t: string) => parseSdmxXml(t, 0.01) },
+    { accept: "application/xml", parse: (t: string) => parseSdmxXml(t, scale) },
+    { accept: "application/vnd.sdmx.data+json;version=1.0.0", parse: (t: string) => parseSdmxJson(JSON.parse(t), scale) },
   ];
   let result: { points: MacroPoint[]; error?: string } = { points: [], error: "Sin respuesta del Banco de la República" };
   for (const a of attempts) {
@@ -82,8 +86,9 @@ export async function getMacro(): Promise<MacroSeries[]> {
   const today = new Date().toISOString().slice(0, 10);
   const from = addDays(today, -365 * YEARS);
 
-  const [tpm, cdt, fx, fed] = await Promise.allSettled([
+  const [tpm, uvr, cdt, fx, fed] = await Promise.allSettled([
     banrepSeries("DF_CBR_MONTHLY_HIST", from.slice(0, 7)),
+    banrepSeries("DF_UVR_DAILY_HIST", addDays(from, -400), 1),
     getCdtHistory("90", from < "2018-01-31" ? "2018-01-31" : from, today),
     getPriceSeries({ symbol: "COP=X", interval: "1d", start: from, asOf: null }),
     fredSeries("FEDFUNDS"),
@@ -105,6 +110,19 @@ export async function getMacro(): Promise<MacroSeries[]> {
         "La tasa a la que el Banco de la República presta a los bancos. La sube para frenar la inflación y la baja para impulsar la economía. Arrastra a las tasas de los CDT y de los créditos.",
       points: tpm.status === "fulfilled" ? tpm.value.points : [],
       error: tpm.status === "fulfilled" ? tpm.value.error : err(tpm),
+    },
+    {
+      key: "inflation",
+      name: "Inflación anual en Colombia",
+      unit: "percent",
+      source: {
+        label: "Calculada con la UVR del Banco de la República, que se ajusta con el IPC del DANE",
+        url: "https://www.datos.gov.co/d/mtic-nvgq",
+      },
+      meaning:
+        "Cuánto subieron los precios en 12 meses. Lo que ganas por encima de este número es tu rentabilidad real; un CDT que paga menos que la inflación te hace perder poder de compra.",
+      points: uvr.status === "fulfilled" ? inflationFromUvr(uvr.value.points).filter((p) => p.date >= from) : [],
+      error: uvr.status === "fulfilled" ? uvr.value.error : err(uvr),
     },
     {
       key: "cdt90",

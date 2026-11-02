@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeOver, monthlyLast, parseFredCsv } from "./parse";
+import { changeOver, inflationFromUvr, monthlyLast, parseFredCsv } from "./parse";
 
 describe("FRED", () => {
   it("lee el CSV, descarta faltantes y pasa a fracción", () => {
@@ -33,5 +33,21 @@ describe("series", () => {
     ];
     expect(changeOver(pts, 12)).toBeCloseTo(-0.01, 12);
     expect(changeOver(pts, 60)).toBeNull();
+  });
+});
+
+describe("inflación desde la UVR", () => {
+  it("usa el 15 de X+2 y el 15 de X−10", () => {
+    const uvr = [
+      { date: "2024-01-15", value: 100 },
+      { date: "2024-01-16", value: 100.01 },
+      { date: "2025-01-15", value: 105 },
+      { date: "2025-02-15", value: 105.5 },
+    ];
+    // 2025-01-15 / 2024-01-15 → inflación anual de noviembre de 2024
+    const r = inflationFromUvr(uvr);
+    expect(r).toHaveLength(1);
+    expect(r[0].date).toBe("2024-11-01");
+    expect(r[0].value).toBeCloseTo(0.05, 12);
   });
 });

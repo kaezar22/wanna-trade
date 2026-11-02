@@ -72,7 +72,8 @@ Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y 
 
 - `/analizar/backtest`: prueba cruce de medias, Chop Zone y rebote en Bollinger contra comprar y mantener. La señal del cierre de un día se ejecuta al cierre del siguiente, con comisión por cada cambio de posición. Un botón aplica la misma regla, sin tocarla, en otros activos para detectar sobreajuste.
 - `/simular/perfil`: patrones acumulados de todas las partidas terminadas (aguantar pérdidas, perseguir subidas, costos, uso de CDT, resultado frente al S&P 500 y un CDT).
-- `/analizar/macro`: tasa del Banco de la República (API SDMX en totoro.banrep.gov.co, `DF_CBR_MONTHLY_HIST`), tasa de CDT a 90 días, dólar en pesos y tasa de la Reserva Federal (FRED), cada una con su fuente.
+- `/analizar/macro`: tasa del Banco de la República e inflación anual (API SDMX en totoro.banrep.gov.co: `DF_CBR_MONTHLY_HIST` y `DF_UVR_DAILY_HIST`), tasa de CDT a 90 días, dólar en pesos y tasa de la Reserva Federal (FRED), cada una con su fuente.
+  - La inflación se calcula con la UVR, que crece del 16 de un mes al 15 del siguiente con el IPC del mes anterior: inflación anual de X = UVR(15 de X+2) / UVR(15 de X−10) − 1. Datos de FRED para el IPC de Colombia están desactualizados, por eso no se usan.
 
 ## Simulador
 
@@ -113,7 +114,7 @@ En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `
 | 3 | ETFs y CDT ✅ (falta el costo anual de los ETF, con fuente) |
 | 4 | Simulador ✅ (falta: noticias históricas y guardar partidas en una base de datos) |
 | 5 | Ruta de aprendizaje y tutor ✅ (el tutor usa la lección como contexto; RAG cuando haya más material) |
-| 6 | Backtesting, perfil de decisiones, datos macro ✅ (falta: inflación en Colombia) |
+| 6 | Backtesting, perfil de decisiones, datos macro ✅ |
 
 ---
 

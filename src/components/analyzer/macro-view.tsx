@@ -32,9 +32,6 @@ export function MacroView({ series }: { series: MacroSeries[] }) {
       {series.map((s) => (
         <SeriesBlock key={s.key} s={s} />
       ))}
-      <p className="text-sm text-ink-soft">
-        Pronto: la inflación en Colombia.
-      </p>
     </div>
   );
 }
