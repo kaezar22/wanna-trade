@@ -5,7 +5,7 @@ export const sections = [
     name: "Analizar",
     summary:
       "Precios, indicadores y noticias hasta hoy, para decisiones con dinero real.",
-    phase: "Fase 2",
+    phase: "Disponible",
   },
   {
     href: "/simular",

@@ -10,7 +10,11 @@ import {
   type ISODate,
   type PriceSeries,
 } from "./types";
+import { mockBars } from "./mock";
 import { fetchYahooBars } from "./yahoo";
+
+// MARKET_DATA_MOCK=1 usa datos simulados (desarrollo sin conexión).
+const fetchBars = process.env.MARKET_DATA_MOCK === "1" ? mockBars : fetchYahooBars;
 
 export type PriceQuery = {
   symbol: string;
@@ -63,7 +67,7 @@ export async function getPriceSeries(query: PriceQuery): Promise<PriceSeries> {
     const end = q.asOf ?? new Date().toISOString().slice(0, 10);
     if (q.start < addDays(end, -MAX_HOURLY_DAYS)) {
       throw new MarketDataError(
-        "Yahoo solo tiene datos por hora de los últimos dos años. Usa una fecha de inicio más reciente o el intervalo diario.",
+        "Yahoo solo tiene datos por hora de los últimos dos años. Elige un periodo de 2 años o menos, o el intervalo diario.",
         "bad_request",
       );
     }
@@ -122,7 +126,7 @@ async function loadSeries(
   const period2 = asOf ? Math.min(dayStartUnix(addDays(asOf, 2)), nowSec) : nowSec;
   const sourceInterval = interval === "1h" ? "1h" : "1d";
 
-  const raw = await fetchYahooBars(symbol, sourceInterval, period1, period2);
+  const raw = await fetchBars(symbol, sourceInterval, period1, period2);
   const inRange = cutAt(raw.bars, asOf).filter((b) => b.date >= start);
 
   const bars =
