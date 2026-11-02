@@ -1,91 +1,78 @@
 import { connection } from "next/server";
 
-// Ruta temporal (fase 3): prueba fuentes de tasas de CDT y datos de ETF desde
-// Vercel. Se borra cuando elijamos las fuentes.
+// Ruta temporal (fase 3, segunda prueba): estructura del dataset de tasas de
+// captación de la Superfinanciera en datos.gov.co. Se borra al terminar.
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+const BASE = "https://www.datos.gov.co/resource";
 
-async function probe(name: string, url: string, read: (res: Response) => Promise<unknown>) {
+async function soql(dataset: string, params: Record<string, string>) {
+  const url = `${BASE}/${dataset}.json?${new URLSearchParams(params)}`;
   const start = Date.now();
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" });
-    return { name, status: res.status, ms: Date.now() - start, result: await read(res) };
+    const res = await fetch(url, { cache: "no-store" });
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text.slice(0, 300);
+    }
+    return { status: res.status, ms: Date.now() - start, body };
   } catch (e) {
-    return { name, ms: Date.now() - start, error: String(e) };
+    return { error: String(e), ms: Date.now() - start };
   }
 }
 
-const json = async (res: Response) => {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text.slice(0, 400);
-  }
-};
+const CDT = "upper(nombre_unidad_de_captura) like '%CDT%'";
 
 export async function GET() {
   await connection();
 
-  const results = await Promise.all([
-    // 1. Datos abiertos: dataset de tasas de captación (metadatos y primeras filas)
-    probe("datos.gov.co axk9-g2nh metadatos", "https://www.datos.gov.co/api/views/axk9-g2nh.json", async (res) => {
-      const d = await json(res);
-      if (typeof d !== "object" || d === null) return d;
-      const v = d as Record<string, unknown>;
-      return {
-        name: v.name,
-        attribution: v.attribution,
-        description: String(v.description ?? "").slice(0, 500),
-        rowsUpdatedAt: v.rowsUpdatedAt,
-        columns: (v.columns as { fieldName: string; name: string }[] | undefined)?.map(
-          (c) => `${c.fieldName} (${c.name})`,
-        ),
-      };
+  const [range, units, dates] = await Promise.all([
+    // Cobertura total
+    soql("axk9-g2nh", {
+      $select: "min(fechacorte) as desde, max(fechacorte) as hasta, count(*) as filas",
+      $where: CDT,
     }),
-    probe(
-      "datos.gov.co axk9-g2nh filas",
-      "https://www.datos.gov.co/resource/axk9-g2nh.json?$limit=5&$order=:id DESC",
-      json,
-    ),
-    // 2. Catálogo de datos abiertos: otros datasets de tasas de captación / CDT
-    probe(
-      "datos.gov.co catálogo",
-      "https://api.us.socrata.com/api/catalog/v1?domains=www.datos.gov.co&q=tasas%20captacion%20CDT&limit=15",
-      async (res) => {
-        const d = (await json(res)) as { results?: { resource: Record<string, unknown> }[] };
-        return (d.results ?? []).map((r) => ({
-          id: r.resource.id,
-          name: r.resource.name,
-          attribution: r.resource.attribution,
-          updatedAt: r.resource.data_updated_at,
-        }));
-      },
-    ),
-    // 3. Superfinanciera: tasas pasivas por entidad (página JSF)
-    probe(
-      "superfinanciera tasas pasivas",
-      "https://www.superfinanciera.gov.co/Superfinanciera-Tasas/faces/generic/passiveInterestRates.xhtml",
-      async (res) => {
-        const html = await res.text();
-        const cells = [...html.matchAll(/<td[^>]*>([^<]{2,80})<\/td>/g)].map((m) => m[1].trim());
-        return { length: html.length, hasCDT: html.includes("CDT"), sampleCells: cells.slice(0, 40) };
-      },
-    ),
-    // 4. Yahoo: perfil de ETF (costo, holdings)
-    probe(
-      "yahoo quoteSummary SPY",
-      "https://query2.finance.yahoo.com/v10/finance/quoteSummary/SPY?modules=fundProfile,topHoldings,summaryDetail",
-      async (res) => JSON.stringify(await json(res)).slice(0, 800),
-    ),
-    // 5. Yahoo: búsqueda (sirve para nombres y tipo de instrumento)
-    probe(
-      "yahoo search ICOLCAP",
-      "https://query2.finance.yahoo.com/v1/finance/search?q=ICOLCAP&quotesCount=5&newsCount=0",
-      async (res) => JSON.stringify(await json(res)).slice(0, 800),
-    ),
+    // Qué unidades de captura, subcuentas y plazos existen para CDT
+    soql("axk9-g2nh", {
+      $select: "uca, nombre_unidad_de_captura, subcuenta, descripcion, count(*) as n",
+      $where: CDT,
+      $group: "uca, nombre_unidad_de_captura, subcuenta, descripcion",
+      $order: "uca, subcuenta",
+      $limit: "80",
+    }),
+    // Frecuencia: últimas fechas de corte
+    soql("axk9-g2nh", {
+      $select: "fechacorte, count(*) as n",
+      $where: CDT,
+      $group: "fechacorte",
+      $order: "fechacorte DESC",
+      $limit: "12",
+    }),
   ]);
 
-  return Response.json({ region: process.env.VERCEL_REGION ?? "local", results });
+  // Muestra del último corte: tasas a 90, 180 y 360 días por entidad
+  const last =
+    Array.isArray(dates.body) && dates.body[0]
+      ? (dates.body[0] as { fechacorte: string }).fechacorte
+      : null;
+  const latest = last
+    ? await soql("axk9-g2nh", {
+        $select: "tipoentidad, nombreentidad, uca, subcuenta, descripcion, tasa, monto",
+        $where: `${CDT} AND fechacorte = '${last}'`,
+        $order: "subcuenta, tasa DESC",
+        $limit: "120",
+      })
+    : null;
+
+  // Otros datasets candidatos: columnas y una fila
+  const others = await Promise.all(
+    ["way6-tjb3", "inq8-ndez", "sqid-kdxm", "gtwv-4pxq"].map(async (id) => ({
+      id,
+      sample: await soql(id, { $limit: "2", $order: ":id DESC" }),
+    })),
+  );
+
+  return Response.json({ range, units, dates, latestDate: last, latest, others });
 }
