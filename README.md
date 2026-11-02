@@ -15,6 +15,8 @@ Es la evolución de [tradex](https://github.com/kaezar22/tradex) (Streamlit).
 - Next.js 16 (App Router, TypeScript) desplegado en Vercel
 - Tailwind CSS 4
 - DeepSeek como LLM, llamado solo desde el servidor
+- Precios de Yahoo Finance (API de gráficos v8) detrás de un adaptador propio
+- Vitest para los tests
 
 ## Correr en local
 
@@ -28,6 +30,27 @@ npm run dev
 ```
 
 Abre http://localhost:3000. Para verificar las claves: http://localhost:3000/api/health
+
+Tests:
+
+```bash
+npm test
+```
+
+Los indicadores se comparan contra valores generados con el código Python original de tradex (`scripts/make_tradex_fixture.py`).
+
+## API de precios
+
+`GET /api/prices?symbol=AAPL&interval=1d&start=2024-01-01&asOf=2024-06-28`
+
+| Parámetro | Valores | Por defecto |
+|---|---|---|
+| `symbol` | Símbolo de Yahoo Finance: `AAPL`, `SPY`, `ICOLCAP.CL`, `COP=X`… | — |
+| `interval` | `1h`, `1d`, `1wk`, `1mo` | `1d` |
+| `start` | AAAA-MM-DD | hace un año |
+| `asOf` | AAAA-MM-DD. Fecha de corte: conoces el cierre de ese día y nada posterior | sin corte (hasta ahora) |
+
+Las semanas y meses se arman a partir de barras diarias ya cortadas, para que una semana parcial no incluya días posteriores a la fecha de corte. Las barras por hora solo existen para los últimos dos años.
 
 ## Variables de entorno
 
@@ -43,7 +66,7 @@ En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `
 | Fase | Contenido |
 |---|---|
 | 0 | Base del proyecto y despliegue ✅ |
-| 1 | Núcleo de datos con fecha de corte, caché e indicadores en TypeScript con tests |
+| 1 | Núcleo de datos con fecha de corte, caché e indicadores en TypeScript con tests ✅ |
 | 2 | Analizador: gráfico interactivo, selector, sentimiento, buscador de tickers |
 | 3 | ETFs y CDT |
 | 4 | Simulador |
