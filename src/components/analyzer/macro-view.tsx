@@ -33,7 +33,7 @@ export function MacroView({ series }: { series: MacroSeries[] }) {
         <SeriesBlock key={s.key} s={s} />
       ))}
       <p className="text-sm text-ink-soft">
-        Pronto: la tasa de política monetaria del Banco de la República y la inflación en Colombia.
+        Pronto: la inflación en Colombia.
       </p>
     </div>
   );

@@ -8,6 +8,7 @@ import { addDays } from "../market/as-of";
 import { getPriceSeries } from "../market/prices";
 import { getCdtHistory } from "../rates/cdt";
 import { monthlyLast, parseFredCsv, type MacroPoint } from "./parse";
+import { parseSdmxJson, parseSdmxXml } from "./sdmx";
 
 export type MacroSeries = {
   key: string;
@@ -40,11 +41,49 @@ async function fredSeries(id: string): Promise<{ points: MacroPoint[]; error?: s
   return result;
 }
 
+const BANREP = "https://totoro.banrep.gov.co/nsi-jax-ws/rest/data";
+
+/**
+ * Serie de la API SDMX del Banco de la República. Prueba primero SDMX-JSON y,
+ * si no, SDMX-ML. Los valores vienen en porcentaje y se pasan a fracción.
+ */
+async function banrepSeries(flow: string, start: string): Promise<{ points: MacroPoint[]; error?: string }> {
+  "use cache";
+  const url = `${BANREP}/${flow}/all/all?startPeriod=${start}`;
+  const attempts = [
+    { accept: "application/vnd.sdmx.data+json;version=1.0.0", parse: (t: string) => parseSdmxJson(JSON.parse(t), 0.01) },
+    { accept: "application/vnd.sdmx.structurespecificdata+xml;version=2.1", parse: (t: string) => parseSdmxXml(t, 0.01) },
+    { accept: "application/xml", parse: (t: string) => parseSdmxXml(t, 0.01) },
+  ];
+  let result: { points: MacroPoint[]; error?: string } = { points: [], error: "Sin respuesta del Banco de la República" };
+  for (const a of attempts) {
+    try {
+      const res = await fetch(url, { headers: { Accept: a.accept, "User-Agent": "wanna-trade" }, cache: "no-store" });
+      if (!res.ok) {
+        result = { points: [], error: `El Banco de la República respondió ${res.status}` };
+        continue;
+      }
+      const points = a.parse(await res.text());
+      if (points.length) {
+        result = { points };
+        break;
+      }
+      result = { points: [], error: "La respuesta del Banco de la República no trajo datos legibles" };
+    } catch (e) {
+      result = { points: [], error: `No se pudo leer la serie del Banco de la República: ${String(e)}` };
+    }
+  }
+  if (result.error) cacheLife("seconds");
+  else cacheLife("days");
+  return result;
+}
+
 export async function getMacro(): Promise<MacroSeries[]> {
   const today = new Date().toISOString().slice(0, 10);
   const from = addDays(today, -365 * YEARS);
 
-  const [cdt, fx, fed] = await Promise.allSettled([
+  const [tpm, cdt, fx, fed] = await Promise.allSettled([
+    banrepSeries("DF_CBR_MONTHLY_HIST", from.slice(0, 7)),
     getCdtHistory("90", from < "2018-01-31" ? "2018-01-31" : from, today),
     getPriceSeries({ symbol: "COP=X", interval: "1d", start: from, asOf: null }),
     fredSeries("FEDFUNDS"),
@@ -54,6 +93,19 @@ export async function getMacro(): Promise<MacroSeries[]> {
     r.status === "rejected" ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : undefined;
 
   return [
+    {
+      key: "tpm",
+      name: "Tasa del Banco de la República",
+      unit: "percent",
+      source: {
+        label: "Banco de la República, tasa de política monetaria (promedio mensual)",
+        url: "https://www.banrep.gov.co/es/glosario/tasa-interes-politica-monetaria",
+      },
+      meaning:
+        "La tasa a la que el Banco de la República presta a los bancos. La sube para frenar la inflación y la baja para impulsar la economía. Arrastra a las tasas de los CDT y de los créditos.",
+      points: tpm.status === "fulfilled" ? tpm.value.points : [],
+      error: tpm.status === "fulfilled" ? tpm.value.error : err(tpm),
+    },
     {
       key: "cdt90",
       name: "Tasa de CDT a 90 días",

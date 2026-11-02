@@ -1,48 +1,32 @@
 import { connection } from "next/server";
 
-// Ruta temporal (fase 6): descubre las series del Banco de la República en su
-// API SDMX y confirma que FRED responde desde Vercel. Se borra al terminar.
+// Ruta temporal (fase 6, segunda prueba): muestra cómo responde la API SDMX
+// del Banco de la República y busca la serie del IPC en datos.gov.co.
 
-const UA = "Mozilla/5.0 (compatible; wanna-trade)";
-
-async function get(url: string, accept = "*/*") {
-  const start = Date.now();
+async function sample(url: string, accept: string) {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: accept }, cache: "no-store" });
+    const res = await fetch(url, { headers: { Accept: accept, "User-Agent": "wanna-trade" }, cache: "no-store" });
     const text = await res.text();
-    return { url, status: res.status, ms: Date.now() - start, length: text.length, text };
+    return { accept, status: res.status, type: res.headers.get("content-type"), length: text.length, head: text.slice(0, 700) };
   } catch (e) {
-    return { url, status: 0, ms: Date.now() - start, length: 0, text: "", error: String(e) };
+    return { accept, error: String(e) };
   }
 }
 
 export async function GET() {
   await connection();
+  const url = "https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/DF_CBR_MONTHLY_HIST/all/all?startPeriod=2025-01";
 
-  const [flows, fred] = await Promise.all([
-    get("https://totoro.banrep.gov.co/nsi-jax-ws/rest/dataflow/all/all/latest", "application/xml"),
-    get("https://fred.stlouisfed.org/graph/fredgraph.csv?id=FEDFUNDS"),
+  const [json, xml, catalog] = await Promise.all([
+    sample(url, "application/vnd.sdmx.data+json;version=1.0.0"),
+    sample(url, "application/xml"),
+    fetch("https://api.us.socrata.com/api/catalog/v1?domains=www.datos.gov.co&q=IPC%20indice%20precios%20consumidor&limit=12", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { results?: { resource: Record<string, unknown> }[] }) =>
+        (d.results ?? []).map((r) => `${r.resource.id}: ${r.resource.name} (${r.resource.attribution ?? "?"}, ${String(r.resource.data_updated_at ?? "").slice(0, 10)})`),
+      )
+      .catch((e) => [String(e)]),
   ]);
 
-  // Extrae id y nombre (en español si hay) de cada dataflow del XML SDMX.
-  const dataflows = [...flows.text.matchAll(/<str:Dataflow[^>]*\sid="([^"]+)"[^>]*>([\s\S]*?)<\/str:Dataflow>/g)].map(
-    (m) => {
-      const es = /<com:Name[^>]*xml:lang="es"[^>]*>([^<]+)</.exec(m[2])?.[1];
-      const any = /<com:Name[^>]*>([^<]+)</.exec(m[2])?.[1];
-      return `${m[1]}: ${es ?? any ?? ""}`;
-    },
-  );
-
-  return Response.json({
-    region: process.env.VERCEL_REGION ?? "local",
-    banrep: {
-      status: flows.status,
-      ms: flows.ms,
-      error: "error" in flows ? flows.error : undefined,
-      count: dataflows.length,
-      dataflows,
-      sample: dataflows.length ? undefined : flows.text.slice(0, 600),
-    },
-    fred: { status: fred.status, ms: fred.ms, head: fred.text.slice(0, 120), tail: fred.text.slice(-60) },
-  });
+  return Response.json({ banrepJson: json, banrepXml: xml, ipcDatasets: catalog });
 }
