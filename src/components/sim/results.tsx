@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { maxDrawdown } from "@/lib/indicators/risk";
 import { behavior, type Game } from "@/lib/sim/engine";
-import { exportGame } from "@/lib/sim/storage";
+import { exportGame, saveGame } from "@/lib/sim/storage";
 import { cn } from "@/lib/utils";
 import { LineChart, type LineSpec } from "../charts/line-chart";
 import { useBenchmarks } from "./use-market";
@@ -18,6 +18,19 @@ export function Results({ game }: { game: Game }) {
   const ret = final / game.initialCash - 1;
   const dd = maxDrawdown(game.history.map((h) => h.value));
   const stats = behavior(game);
+
+  // Guarda el valor final de las referencias para el perfil de decisiones.
+  useEffect(() => {
+    if (!bench || game.benchmarkFinals) return;
+    saveGame({
+      ...game,
+      benchmarkFinals: {
+        spy: bench.spy?.values.at(-1),
+        icolcap: bench.icolcap?.values.at(-1),
+        cdt: bench.cdt?.values.at(-1),
+      },
+    });
+  }, [bench, game]);
 
   const rows = [
     { name: "Tu portafolio", final, highlight: true },
@@ -170,6 +183,9 @@ export function Results({ game }: { game: Game }) {
       <div className="flex flex-wrap gap-4 border-t border-grid pt-6 text-sm">
         <Link href="/simular" className="text-cobalt underline-offset-4 hover:underline">
           Nueva partida
+        </Link>
+        <Link href="/simular/perfil" className="text-cobalt underline-offset-4 hover:underline">
+          Tu perfil de inversionista
         </Link>
         <button type="button" onClick={() => exportGame(game)} className="text-cobalt underline-offset-4 hover:underline">
           Exportar esta partida

@@ -77,6 +77,8 @@ export type Game = {
   /** Valor total registrado en cada avance del reloj. */
   history: { date: string; value: number }[];
   finished: boolean;
+  /** Valor final de las referencias, guardado al ver los resultados (para el perfil). */
+  benchmarkFinals?: { spy?: number; icolcap?: number; cdt?: number };
 };
 
 export const DEFAULT_SETTINGS: GameSettings = {

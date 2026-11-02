@@ -115,9 +115,14 @@ export function SimHome() {
 
       {games && games.length > 0 && (
         <section aria-labelledby="games">
-          <h2 id="games" className="text-lg font-semibold">
-            Tus partidas
-          </h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="games" className="text-lg font-semibold">
+              Tus partidas
+            </h2>
+            <Link href="/simular/perfil" className="text-sm text-cobalt underline-offset-4 hover:underline">
+              Ver tu perfil de inversionista
+            </Link>
+          </div>
           <ul className="mt-3 divide-y divide-grid border-y border-grid">
             {games.map((g) => (
               <li key={g.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
