@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSnapshot, cdtReturn, monthlyAverages, rollCdt, type RawCdtRow } from "./cdt-math";
+import { buildSnapshot, cleanEntityName, cdtReturn, monthlyAverages, rollCdt, type RawCdtRow } from "./cdt-math";
 
 // Filas reales de datos.gov.co (axk9-g2nh), corte 2026-10-30.
 const day30: RawCdtRow[] = [
@@ -95,5 +95,17 @@ describe("rollCdt", () => {
     const afterSecond = afterFirst * 1.08 ** (90 / 365);
     expect(path[3].value).toBeCloseTo(afterSecond, 9);
     expect(path[4].value).toBeCloseTo(afterSecond * 1.08 ** (1 / 365), 9);
+  });
+});
+
+describe("cleanEntityName", () => {
+  it("limpia los nombres tal como llegan de datos.gov.co", () => {
+    expect(cleanEntityName('BANCO UNIÓN S.A. (en adelante el "Banco" o la "Sociedad")')).toBe(
+      "Banco Unión S.A.",
+    );
+    expect(cleanEntityName('"KOA CF"')).toBe("KOA CF");
+    expect(cleanEntityName('"Bold C.F.", "Bold CF S.A.", o "Bold. CF"')).toBe("Bold C.F.");
+    expect(cleanEntityName("Lulo Bank S.A.")).toBe("Lulo Bank S.A.");
+    expect(cleanEntityName("Banco de Bogotá S.A.")).toBe("Banco de Bogotá S.A.");
   });
 });

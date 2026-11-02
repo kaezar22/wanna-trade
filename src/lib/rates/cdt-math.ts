@@ -29,6 +29,33 @@ const ENTITY_TYPES: Record<string, string> = {
   "32": "Cooperativa financiera",
 };
 
+/**
+ * Limpia el nombre que reporta la entidad: quita aclaraciones legales entre
+ * paréntesis, comillas y alias repetidos, y pasa a mayúscula inicial los
+ * nombres escritos todo en mayúsculas.
+ */
+export function cleanEntityName(raw: string): string {
+  let name = raw.replace(/\s*\([^)]*en adelante[^)]*\)/gi, "").trim();
+  // Varios alias entre comillas: "Bold C.F.", "Bold CF S.A.", o "Bold. CF" → el primero.
+  const quoted = name.match(/["“”]([^"“”]+)["“”]/);
+  if (quoted) name = quoted[1];
+  name = name.replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
+
+  // Solo nombres largos en mayúsculas; siglas cortas como "KOA CF" se dejan igual.
+  const letters = name.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g, "");
+  const hasLongWord = name.split(" ").some((w) => w.replace(/[^A-Za-zÁÉÍÓÚÑ]/gi, "").length >= 5);
+  if (hasLongWord && letters === letters.toUpperCase()) {
+    name = name
+      .toLowerCase()
+      .split(" ")
+      .map((w) =>
+        w.includes(".") || w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1),
+      )
+      .join(" ");
+  }
+  return name || raw.trim();
+}
+
 export function entityTypeLabel(code: string): string {
   return ENTITY_TYPES[code] ?? "Otra entidad";
 }
@@ -83,12 +110,12 @@ export function buildSnapshot(rows: RawCdtRow[]): CdtTermSnapshot[] {
     const amount = Number(r.monto);
     if (!term || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(amount) || amount <= 0) continue;
     const date = (r.fechacorte ?? "").slice(0, 10);
-    const key = `${term}|${r.nombreentidad}`;
+    const key = `${term}|${cleanEntityName(r.nombreentidad)}`;
     const prev = latest.get(key);
     if (!prev || date > prev.date) {
       latest.set(key, {
         term,
-        entity: r.nombreentidad,
+        entity: cleanEntityName(r.nombreentidad),
         entityType: entityTypeLabel(r.tipoentidad),
         rate,
         amount,
