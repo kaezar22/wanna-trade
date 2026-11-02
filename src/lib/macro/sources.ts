@@ -75,7 +75,12 @@ async function banrepSeries(
         result = { points };
         break;
       }
-      failures.push(`${q || "sin filtro"}: sin datos (${text.slice(0, 80).replace(/\s+/g, " ")})`);
+      // Diagnóstico: tamaño, cuántas observaciones hay y cómo se ven los datos tras el encabezado.
+      const afterHeader = text.slice(text.indexOf("</message:Header>") + 17, text.indexOf("</message:Header>") + 17 + 500);
+      const obsCount = (text.match(/Obs\b/g) ?? []).length;
+      failures.push(
+        `${q || "sin filtro"}: sin datos legibles (${text.length} caracteres, ${obsCount} marcas Obs; datos: ${afterHeader.replace(/\s+/g, " ")})`,
+      );
     } catch (e) {
       failures.push(`${q || "sin filtro"}: ${String(e)}`);
     }
