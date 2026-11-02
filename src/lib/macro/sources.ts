@@ -44,8 +44,8 @@ async function fredSeries(id: string): Promise<{ points: MacroPoint[]; error?: s
 const BANREP = "https://totoro.banrep.gov.co/nsi-jax-ws/rest/data";
 
 /**
- * Serie de la API SDMX del Banco de la República. Prueba primero SDMX-ML y,
- * si no, SDMX-JSON. Las tasas vienen en porcentaje: `scale` = 0.01 las pasa a fracción.
+ * Serie de la API SDMX del Banco de la República, leída como SDMX-ML (con
+ * respaldo SDMX-JSON). Las tasas vienen en porcentaje: `scale` = 0.01 las pasa a fracción.
  */
 async function banrepSeries(
   flow: string,
@@ -53,30 +53,34 @@ async function banrepSeries(
   scale = 0.01,
 ): Promise<{ points: MacroPoint[]; error?: string }> {
   "use cache";
-  const url = `${BANREP}/${flow}/all/all?startPeriod=${start}`;
-  // La API responde SDMX-ML genérico con application/xml (JSON da 406).
-  const attempts = [
-    { accept: "application/xml", parse: (t: string) => parseSdmxXml(t, scale) },
-    { accept: "application/vnd.sdmx.data+json;version=1.0.0", parse: (t: string) => parseSdmxJson(JSON.parse(t), scale) },
-  ];
-  let result: { points: MacroPoint[]; error?: string } = { points: [], error: "Sin respuesta del Banco de la República" };
-  for (const a of attempts) {
+  // La API responde SDMX-ML genérico con application/xml (JSON da 406). Las
+  // series diarias pueden no aceptar todos los formatos de fecha, así que se
+  // prueban varias formas de pedir el periodo.
+  const queries = [`startPeriod=${start}`, `startPeriod=${start.slice(0, 4)}`, "lastNObservations=4500", ""];
+  const failures: string[] = [];
+  let result: { points: MacroPoint[]; error?: string } | null = null;
+
+  for (const q of queries) {
+    const url = `${BANREP}/${flow}/all/all${q ? `?${q}` : ""}`;
     try {
-      const res = await fetch(url, { headers: { Accept: a.accept, "User-Agent": "wanna-trade" }, cache: "no-store" });
+      const res = await fetch(url, { headers: { Accept: "application/xml", "User-Agent": "wanna-trade" }, cache: "no-store" });
+      const text = await res.text();
       if (!res.ok) {
-        result = { points: [], error: `El Banco de la República respondió ${res.status}` };
+        failures.push(`${q || "sin filtro"}: ${res.status}`);
         continue;
       }
-      const points = a.parse(await res.text());
+      let points = parseSdmxXml(text, scale);
+      if (!points.length && text.trim().startsWith("{")) points = parseSdmxJson(JSON.parse(text), scale);
       if (points.length) {
         result = { points };
         break;
       }
-      result = { points: [], error: "La respuesta del Banco de la República no trajo datos legibles" };
+      failures.push(`${q || "sin filtro"}: sin datos (${text.slice(0, 80).replace(/\s+/g, " ")})`);
     } catch (e) {
-      result = { points: [], error: `No se pudo leer la serie del Banco de la República: ${String(e)}` };
+      failures.push(`${q || "sin filtro"}: ${String(e)}`);
     }
   }
+  result ??= { points: [], error: `El Banco de la República no entregó la serie ${flow}. Intentos: ${failures.join("; ")}` };
   if (result.error) cacheLife("seconds");
   else cacheLife("days");
   return result;
