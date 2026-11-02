@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { href: "/analizar", label: "Instrumento" },
   { href: "/analizar/comparar", label: "Comparar" },
+  { href: "/analizar/cdt", label: "CDT" },
+  { href: "/analizar/etfs", label: "ETFs" },
   { href: "/analizar/noticias", label: "Noticias" },
   { href: "/analizar/buscar", label: "Buscar tickers" },
 ];

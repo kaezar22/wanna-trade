@@ -60,6 +60,11 @@ Otras rutas:
 | `GET /api/screen?t=AAPL,MSFT,SPY&i=1d&r=1a` | Tendencia, riesgo y correlación de hasta 30 símbolos, y los 5 menos correlacionados |
 | `GET /api/sentiment?q=Apple` | Titulares de NewsAPI y su sentimiento según DeepSeek |
 | `GET /api/tickers?q=10 empresas de energía renovable` | Símbolos sugeridos por DeepSeek y verificados en Yahoo |
+| `GET /api/cdt?fecha=2024-06-28` | Tasas de CDT por entidad y plazo conocidas en esa fecha (sin fecha: las más recientes) |
+| `GET /api/cdt/history?plazo=90&desde=2021-01-01` | Tasa promedio mensual de CDT para un plazo |
+| `GET /api/compare-cdt?symbol=SPY&desde=2023-01-02&monto=10000000&plazo=90` | Un ETF en pesos frente a CDT renovados con las tasas de cada momento |
+
+Las tasas de CDT vienen del Formato 441 de la Superintendencia Financiera, publicado a diario en [datos.gov.co](https://www.datos.gov.co/en/Hacienda-y-Cr-dito-P-blico/Tasas-de-inter-s-de-captaci-n-y-operaciones-del-me/axk9-g2nh) desde enero de 2018. Para cada entidad y plazo se usa su dato más reciente de los últimos 10 días, y el promedio se pondera por monto, como la DTF.
 
 Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y guardan la respuesta una hora.
 
@@ -69,7 +74,8 @@ Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y 
 |---|---|
 | `DEEPSEEK_API_KEY` | Sentimiento de noticias, buscador de tickers y tutor |
 | `NEWS_API_KEY` | Titulares de noticias recientes |
-| `MARKET_DATA_MOCK` | Opcional. `1` = precios simulados para desarrollar sin conexión |
+| `MARKET_DATA_MOCK` | Opcional. `1` = precios y tasas simulados para desarrollar sin conexión |
+| `SOCRATA_APP_TOKEN` | Opcional. Token de datos.gov.co para tener un límite de consultas más alto |
 
 En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `NEXT_PUBLIC_` para claves: ese prefijo las expone en el navegador.
 
@@ -80,7 +86,7 @@ En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `
 | 0 | Base del proyecto y despliegue ✅ |
 | 1 | Núcleo de datos con fecha de corte, caché e indicadores en TypeScript con tests ✅ |
 | 2 | Analizador: gráfico interactivo, selector, sentimiento, buscador de tickers ✅ |
-| 3 | ETFs y CDT |
+| 3 | ETFs y CDT ✅ (falta el costo anual de los ETF, con fuente) |
 | 4 | Simulador |
 | 5 | Ruta de aprendizaje y tutor |
 | 6 | Backtesting, perfil de decisiones, datos macro |
