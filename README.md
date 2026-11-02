@@ -80,6 +80,12 @@ Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y 
 
 Las partidas se guardan en el navegador (localStorage) y se pueden exportar e importar como JSON.
 
+## Aprender
+
+`/aprender` tiene 7 lecciones (`src/lib/learn/lessons.ts`): fundamentos, gráficos, indicadores, qué comparar, portafolio, noticias y psicología. Cada una trae widgets interactivos, un quiz y una misión que abre el analizador o el simulador ya configurado (`/simular?inicio=2020-02-03&duracion=1a&ciegas=1&activos=SPY,TLT`). El progreso se guarda en el navegador.
+
+El tutor (`POST /api/tutor`) responde con DeepSeek usando el texto de la lección como contexto, sin recomendaciones personalizadas, con un límite de 30 preguntas por hora por IP.
+
 ## Variables de entorno
 
 | Variable | Uso |
@@ -100,7 +106,7 @@ En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `
 | 2 | Analizador: gráfico interactivo, selector, sentimiento, buscador de tickers ✅ |
 | 3 | ETFs y CDT ✅ (falta el costo anual de los ETF, con fuente) |
 | 4 | Simulador ✅ (falta: noticias históricas y guardar partidas en una base de datos) |
-| 5 | Ruta de aprendizaje y tutor |
+| 5 | Ruta de aprendizaje y tutor ✅ (el tutor usa la lección como contexto; RAG cuando haya más material) |
 | 6 | Backtesting, perfil de decisiones, datos macro |
 
 ---

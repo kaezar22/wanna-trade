@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { ETFS } from "@/lib/etfs";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -33,16 +33,30 @@ const DURATIONS = [
 export function SimHome() {
   const games = useGames();
   const router = useRouter();
+  const params = useSearchParams();
   const today = new Date().toISOString().slice(0, 10);
   const maxStart = addDays(today, -90);
 
-  const [name, setName] = useState("");
-  const [start, setStart] = useState(addDays(today, -730));
-  const [duration, setDuration] = useState("1a");
+  // Las misiones de Aprender abren el simulador con la partida preconfigurada:
+  // ?inicio=2020-02-03&duracion=1a&activos=SPY,TLT&ciegas=1&nombre=...
+  const preset = {
+    start: params.get("inicio"),
+    duration: params.get("duracion"),
+    assets: params.get("activos")?.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean),
+    blind: params.get("ciegas") === "1",
+    name: params.get("nombre"),
+  };
+  const fromMission = Boolean(preset.start || preset.assets || preset.name);
+
+  const [name, setName] = useState(preset.name ?? "");
+  const [start, setStart] = useState(preset.start ?? addDays(today, -730));
+  const [duration, setDuration] = useState(
+    DURATIONS.some((d) => d.key === preset.duration) ? preset.duration! : "1a",
+  );
   const [capital, setCapital] = useState(10_000_000);
-  const [universe, setUniverse] = useState<string[]>(DEFAULT_UNIVERSE);
+  const [universe, setUniverse] = useState<string[]>(preset.assets?.length ? preset.assets : DEFAULT_UNIVERSE);
   const [custom, setCustom] = useState("");
-  const [blind, setBlind] = useState(false);
+  const [blind, setBlind] = useState(preset.blind);
   const [commission, setCommission] = useState(0.5);
   const [spread, setSpread] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +175,13 @@ export function SimHome() {
             />
           </div>
         </div>
+
+        {fromMission && (
+          <p className="rounded-lg border border-cobalt/40 bg-paper-raised p-4 text-sm">
+            Partida preparada para la misión
+            {preset.name ? ` "${preset.name}"` : ""}. Revisa las opciones y empieza cuando quieras.
+          </p>
+        )}
 
         <form onSubmit={create} className="space-y-8">
           <fieldset className="space-y-3">

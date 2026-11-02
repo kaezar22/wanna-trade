@@ -19,6 +19,6 @@ export const sections = [
     name: "Aprender",
     summary:
       "Una ruta por pasos: leer gráficos, comparar activos y diseñar un portafolio.",
-    phase: "Fase 5",
+    phase: "Disponible",
   },
 ] as const;
