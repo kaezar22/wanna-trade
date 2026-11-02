@@ -27,11 +27,14 @@ export function LineChart({
   format,
   height = 320,
   label,
+  hideTime = false,
 }: {
   lines: LineSpec[];
   format: "percent" | "money";
   height?: number;
   label: string;
+  /** Oculta las fechas del eje (modo a ciegas). */
+  hideTime?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState(0);
@@ -56,7 +59,8 @@ export function LineChart({
       },
       grid: { vertLines: { color: c("--grid") }, horzLines: { color: c("--grid") } },
       rightPriceScale: { borderColor: c("--grid") },
-      timeScale: { borderColor: c("--grid") },
+      timeScale: { borderColor: c("--grid"), visible: !hideTime },
+      crosshair: { vertLine: { labelVisible: !hideTime } },
       localization: {
         locale: "es-CO",
         priceFormatter:
@@ -79,7 +83,7 @@ export function LineChart({
     }
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [lines, format, theme]);
+  }, [lines, format, theme, hideTime]);
 
   return (
     <figure className="overflow-hidden rounded-lg border border-grid bg-paper-raised">

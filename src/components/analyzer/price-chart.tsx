@@ -59,9 +59,11 @@ type Props = {
   hasVolume: boolean;
   overlays: Overlays;
   onHover?: (index: number | null) => void;
+  /** Oculta las fechas (modo a ciegas del simulador). */
+  hideTime?: boolean;
 };
 
-export function PriceChart({ bars, interval, hasOHLC, hasVolume, overlays, onHover }: Props) {
+export function PriceChart({ bars, interval, hasOHLC, hasVolume, overlays, onHover, hideTime = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rangeRef = useRef<LogicalRange | null>(null);
   // Último índice lógico dibujado (incluye el futuro), para mover el encuadre
@@ -99,8 +101,8 @@ export function PriceChart({ bars, interval, hasOHLC, hasVolume, overlays, onHov
       },
       grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
       rightPriceScale: { borderColor: t.grid },
-      timeScale: { borderColor: t.grid, timeVisible: interval === "1h", rightOffset: 4 },
-      crosshair: { mode: CrosshairMode.Normal },
+      timeScale: { borderColor: t.grid, timeVisible: interval === "1h", rightOffset: 4, visible: !hideTime },
+      crosshair: { mode: CrosshairMode.Normal, vertLine: { labelVisible: !hideTime } },
       localization: { locale: "es-CO" },
     });
 
@@ -249,7 +251,7 @@ export function PriceChart({ bars, interval, hasOHLC, hasVolume, overlays, onHov
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       chart.remove();
     };
-  }, [bars, interval, hasOHLC, hasVolume, overlays, onHover, themeVersion]);
+  }, [bars, interval, hasOHLC, hasVolume, overlays, onHover, themeVersion, hideTime]);
 
   return <div ref={containerRef} className="h-[460px] w-full sm:h-[560px]" />;
 }

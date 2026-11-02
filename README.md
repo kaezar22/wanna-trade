@@ -68,6 +68,18 @@ Las tasas de CDT vienen del Formato 441 de la Superintendencia Financiera, publi
 
 Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y guardan la respuesta una hora.
 
+## Simulador
+
+`/simular` crea partidas que empiezan en una fecha del pasado (desde 2018) con un capital en pesos. Reglas:
+
+- Solo se ven precios y tasas de CDT hasta la fecha simulada: `/api/sim/market` corta las series en el servidor.
+- Las operaciones se hacen al cierre del día, con comisión y, en activos en dólares, diferencial cambiario.
+- Los CDT usan las tasas reales de los bancos en esa fecha y quedan bloqueados hasta el vencimiento.
+- Al terminar: comparación con el S&P 500, el COLCAP y CDT a 90 días (`/api/sim/benchmarks`) y un análisis de hábitos (vender pronto lo que gana, perseguir subidas, costos).
+- Modo a ciegas: activos con alias y fechas como "Día N" hasta el final.
+
+Las partidas se guardan en el navegador (localStorage) y se pueden exportar e importar como JSON.
+
 ## Variables de entorno
 
 | Variable | Uso |
@@ -87,7 +99,7 @@ En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `
 | 1 | Núcleo de datos con fecha de corte, caché e indicadores en TypeScript con tests ✅ |
 | 2 | Analizador: gráfico interactivo, selector, sentimiento, buscador de tickers ✅ |
 | 3 | ETFs y CDT ✅ (falta el costo anual de los ETF, con fuente) |
-| 4 | Simulador |
+| 4 | Simulador ✅ (falta: noticias históricas y guardar partidas en una base de datos) |
 | 5 | Ruta de aprendizaje y tutor |
 | 6 | Backtesting, perfil de decisiones, datos macro |
 

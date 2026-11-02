@@ -12,7 +12,7 @@ export const sections = [
     name: "Simular",
     summary:
       "Vuelve a una fecha de hace dos o tres años, arma un portafolio y avanza el reloj.",
-    phase: "Fase 4",
+    phase: "Disponible",
   },
   {
     href: "/aprender",
