@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# wanna-trade
 
-## Getting Started
+Analizador de mercado y simulador para aprender a invertir.
 
-First, run the development server:
+- **Analizar**: precios, indicadores y noticias con datos hasta hoy.
+- **Simular**: vuelve a una fecha del pasado, arma un portafolio y avanza el reloj sin ver el futuro.
+- **Aprender**: una ruta por pasos con misiones en el simulador.
+
+Todas las funciones de datos reciben una **fecha de corte** (`asOf`). El analizador usa la fecha de hoy y el simulador una fecha del pasado, así que las mejoras de una sección sirven también para la otra.
+
+Es la evolución de [tradex](https://github.com/kaezar22/tradex) (Streamlit).
+
+## Stack
+
+- Next.js 16 (App Router, TypeScript) desplegado en Vercel
+- Tailwind CSS 4
+- DeepSeek como LLM, llamado solo desde el servidor
+
+## Correr en local
+
+Requiere Node.js 20.9 o superior.
 
 ```bash
+npm install
+cp .env.example .env.local   # en Windows: copy .env.example .env.local
+# llena DEEPSEEK_API_KEY y NEWS_API_KEY en .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000. Para verificar las claves: http://localhost:3000/api/health
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Uso |
+|---|---|
+| `DEEPSEEK_API_KEY` | Sentimiento de noticias, buscador de tickers y tutor |
+| `NEWS_API_KEY` | Titulares de noticias recientes |
 
-## Learn More
+En Vercel van en **Settings → Environment Variables**. Nunca uses el prefijo `NEXT_PUBLIC_` para claves: ese prefijo las expone en el navegador.
 
-To learn more about Next.js, take a look at the following resources:
+## Plan
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Fase | Contenido |
+|---|---|
+| 0 | Base del proyecto y despliegue ✅ |
+| 1 | Núcleo de datos con fecha de corte, caché e indicadores en TypeScript con tests |
+| 2 | Analizador: gráfico interactivo, selector, sentimiento, buscador de tickers |
+| 3 | ETFs y CDT |
+| 4 | Simulador |
+| 5 | Ruta de aprendizaje y tutor |
+| 6 | Backtesting, perfil de decisiones, datos macro |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Herramienta educativa y de análisis. No es una recomendación de inversión.
