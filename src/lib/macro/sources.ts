@@ -8,7 +8,7 @@ import { addDays } from "../market/as-of";
 import { getPriceSeries } from "../market/prices";
 import { getCdtHistory } from "../rates/cdt";
 import { inflationFromUvr, monthlyLast, parseFredCsv, type MacroPoint } from "./parse";
-import { parseSdmxJson, parseSdmxXml } from "./sdmx";
+import { parseSdmxJson, parseSdmxXml, parseSdmxXmlSeries } from "./sdmx";
 
 export type MacroSeries = {
   key: string;
@@ -51,6 +51,8 @@ async function banrepSeries(
   flow: string,
   start: string,
   scale = 0.01,
+  /** Si llegan varias series, usar solo las cuyo último valor supere este número. */
+  minLast?: number,
 ): Promise<{ points: MacroPoint[]; error?: string }> {
   "use cache";
   // La API responde SDMX-ML genérico con application/xml (JSON da 406). Las
@@ -69,18 +71,18 @@ async function banrepSeries(
         failures.push(`${q || "sin filtro"}: ${res.status}`);
         continue;
       }
-      let points = parseSdmxXml(text, scale);
+      let points = parseSdmxXml(text, scale, minLast === undefined ? undefined : (x) => (x.points.at(-1)?.value ?? -Infinity) > minLast);
       if (!points.length && text.trim().startsWith("{")) points = parseSdmxJson(JSON.parse(text), scale);
       if (points.length) {
         result = { points };
         break;
       }
-      // Diagnóstico: tamaño, cuántas observaciones hay y cómo se ven los datos tras el encabezado.
-      const afterHeader = text.slice(text.indexOf("</message:Header>") + 17, text.indexOf("</message:Header>") + 17 + 500);
-      const obsCount = (text.match(/Obs\b/g) ?? []).length;
-      failures.push(
-        `${q || "sin filtro"}: sin datos legibles (${text.length} caracteres, ${obsCount} marcas Obs; datos: ${afterHeader.replace(/\s+/g, " ")})`,
-      );
+      // Diagnóstico: qué series llegaron y cómo se ve una observación.
+      const found = parseSdmxXmlSeries(text, scale)
+        .map((x) => `${Object.values(x.key).join(".") || "?"} (${x.points.length} datos, último ${x.points.at(-1)?.value ?? "—"})`)
+        .join(", ");
+      const obs = /<(?:\w+:)?Obs\b[\s\S]{0,300}/.exec(text)?.[0] ?? "sin <Obs>";
+      failures.push(`${q || "sin filtro"}: sin datos legibles (series: ${found}; ejemplo: ${obs.replace(/\s+/g, " ")})`);
     } catch (e) {
       failures.push(`${q || "sin filtro"}: ${String(e)}`);
     }
@@ -97,7 +99,8 @@ export async function getMacro(): Promise<MacroSeries[]> {
 
   const [tpm, uvr, cdt, fx, fed] = await Promise.allSettled([
     banrepSeries("DF_CBR_MONTHLY_HIST", from.slice(0, 7)),
-    banrepSeries("DF_UVR_DAILY_HIST", addDays(from, -400), 1),
+    // La respuesta trae la UVR en pesos y su variación anual: se usa la del nivel (≈ 400 pesos).
+    banrepSeries("DF_UVR_DAILY_HIST", addDays(from, -400), 1, 50),
     getCdtHistory("90", from < "2018-01-31" ? "2018-01-31" : from, today),
     getPriceSeries({ symbol: "COP=X", interval: "1d", start: from, asOf: null }),
     fredSeries("FEDFUNDS"),
