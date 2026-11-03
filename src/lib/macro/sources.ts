@@ -8,7 +8,7 @@ import { addDays } from "../market/as-of";
 import { getPriceSeries } from "../market/prices";
 import { getCdtHistory } from "../rates/cdt";
 import { inflationFromUvr, monthlyLast, parseFredCsv, type MacroPoint } from "./parse";
-import { parseSdmxJson, parseSdmxXml, parseSdmxXmlSeries } from "./sdmx";
+import { parseSdmxJson, parseSdmxXml } from "./sdmx";
 
 export type MacroSeries = {
   key: string;
@@ -77,12 +77,7 @@ async function banrepSeries(
         result = { points };
         break;
       }
-      // Diagnóstico: qué series llegaron y cómo se ve una observación.
-      const found = parseSdmxXmlSeries(text, scale)
-        .map((x) => `${Object.values(x.key).join(".") || "?"} (${x.points.length} datos, último ${x.points.at(-1)?.value ?? "—"})`)
-        .join(", ");
-      const obs = /<(?:\w+:)?Obs\b[\s\S]{0,300}/.exec(text)?.[0] ?? "sin <Obs>";
-      failures.push(`${q || "sin filtro"}: sin datos legibles (series: ${found}; ejemplo: ${obs.replace(/\s+/g, " ")})`);
+      failures.push(`${q || "sin filtro"}: la respuesta no trae datos legibles`);
     } catch (e) {
       failures.push(`${q || "sin filtro"}: ${String(e)}`);
     }
