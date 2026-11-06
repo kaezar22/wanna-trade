@@ -12,6 +12,7 @@ const tabs = [
   { href: "/analizar/etfs", label: "ETFs" },
   { href: "/analizar/macro", label: "Macro" },
   { href: "/analizar/noticias", label: "Noticias" },
+  { href: "/analizar/geopolitica", label: "Geopolítica" },
   { href: "/analizar/buscar", label: "Buscar tickers" },
 ];
 

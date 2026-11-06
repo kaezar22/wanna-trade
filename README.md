@@ -62,6 +62,7 @@ Otras rutas:
 | `GET /api/tickers?q=10 empresas de energía renovable` | Símbolos sugeridos por DeepSeek y verificados en Yahoo |
 | `GET /api/cdt?fecha=2024-06-28` | Tasas de CDT por entidad y plazo conocidas en esa fecha (sin fecha: las más recientes) |
 | `GET /api/cdt/history?plazo=90&desde=2021-01-01` | Tasa promedio mensual de CDT para un plazo |
+| `GET /api/geo` | Noticias de geopolítica enriquecidas (la tabla de `/analizar/geopolitica` en JSON) |
 | `GET /api/compare-cdt?symbol=SPY&desde=2023-01-02&monto=10000000&plazo=90` | Un ETF en pesos frente a CDT renovados con las tasas de cada momento |
 
 Las tasas de CDT vienen del Formato 441 de la Superintendencia Financiera, publicado a diario en [datos.gov.co](https://www.datos.gov.co/en/Hacienda-y-Cr-dito-P-blico/Tasas-de-inter-s-de-captaci-n-y-operaciones-del-me/axk9-g2nh) desde enero de 2018. Para cada entidad y plazo se usa su dato más reciente de los últimos 10 días, y el promedio se pondera por monto, como la DTF.
@@ -74,6 +75,17 @@ Las rutas que usan DeepSeek tienen un límite de 20 consultas por hora por IP y 
 - `/simular/perfil`: patrones acumulados de todas las partidas terminadas (aguantar pérdidas, perseguir subidas, costos, uso de CDT, resultado frente al S&P 500 y un CDT).
 - `/analizar/macro`: tasa del Banco de la República e inflación anual (API SDMX en totoro.banrep.gov.co: `DF_CBR_MONTHLY_HIST` y `DF_UVR_DAILY_HIST`), tasa de CDT a 90 días, dólar en pesos y tasa de la Reserva Federal (FRED), cada una con su fuente.
   - La inflación se calcula con la UVR, que crece del 16 de un mes al 15 del siguiente con el IPC del mes anterior: inflación anual de X = UVR(15 de X+2) / UVR(15 de X−10) − 1. Datos de FRED para el IPC de Colombia están desactualizados, por eso no se usan.
+
+## Geopolítica
+
+`/analizar/geopolitica` es un servicio de enriquecimiento de datos sin base de datos:
+
+1. Lee los RSS de 19 medios de distintos países (`src/lib/geo/outlets.ts`). El país de cada medio está fijado a mano, y se marca si es público (BBC, DW…) o estatal (TASS, CGTN…).
+2. Toma hasta 5 noticias por medio de las últimas 48 horas. En los feeds que mezclan temas filtra antes por palabras clave.
+3. DeepSeek, en lotes de 15, descarta lo que no es geopolítica y devuelve resumen en español, personas, países (ISO 3166), tema (lista fija), subtema, tono y efecto en el riesgo de mercado. La respuesta se valida contra la taxonomía (`src/lib/geo/classify.ts`).
+4. El resultado se guarda una hora en caché. La tabla se puede filtrar y descargar en CSV.
+
+Se descartó la API DOC de GDELT: desde Vercel responde 429 casi siempre (IP compartida) y el país que asigna a algunos medios es incorrecto.
 
 ## Simulador
 
